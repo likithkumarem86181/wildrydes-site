@@ -14,8 +14,7 @@ var WildRydes = window.WildRydes || {};
 
     if (!(_config.cognito.userPoolId &&
           _config.cognito.userPoolClientId &&
-          _config.cognito.region &&
-          _config.cognito.ClientSecret)) {  // 🔥 Ensure ClientSecret is present
+          _config.cognito.region)) {
         $('#noCognitoMessage').show();
         return;
     }
@@ -48,53 +47,10 @@ var WildRydes = window.WildRydes || {};
         }
     });
 
-    /*
-     * 🔥 Function to Generate SECRET_HASH
-     */
-    async function calculateSecretHash(username, clientId, clientSecret) {
-        const crypto = window.crypto || window.msCrypto; // Browser compatibility
-
-        const message = username + clientId;
-        const key = new TextEncoder().encode(clientSecret);
-        const data = new TextEncoder().encode(message);
-
-        const hmacKey = await crypto.subtle.importKey(
-            "raw", key, { name: "HMAC", hash: { name: "SHA-256" } }, false, ["sign"]
-        );
-
-        const signature = await crypto.subtle.sign("HMAC", hmacKey, data);
-        return btoa(String.fromCharCode(...new Uint8Array(signature)));
-    }
 
     /*
-     * 🔥 Modified signin() to Include SECRET_HASH
+     * Cognito User Pool functions
      */
-    async function signin(email, password, onSuccess, onFailure) {
-        var authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({
-            Username: toUsername(email),
-            Password: password
-        });
-
-        var clientId = _config.cognito.userPoolClientId;
-        var clientSecret = _config.cognito.ClientSecret;
-
-        // 🔥 Generate SECRET_HASH
-        var secretHash = await calculateSecretHash(toUsername(email), clientId, clientSecret);
-
-        var authParameters = {
-            USERNAME: toUsername(email),
-            PASSWORD: password,
-            SECRET_HASH: secretHash // 🔥 Pass SECRET_HASH in the request
-        };
-
-        var cognitoUser = createCognitoUser(email);
-        cognitoUser.authenticateUser(authenticationDetails, {
-            onSuccess: onSuccess,
-            onFailure: onFailure,
-            authenticationFlowType: "USER_PASSWORD_AUTH",
-            authParameters: authParameters
-        });
-    }
 
     function register(email, password, onSuccess, onFailure) {
         var dataEmail = {
@@ -112,6 +68,19 @@ var WildRydes = window.WildRydes || {};
                 }
             }
         );
+    }
+
+    function signin(email, password, onSuccess, onFailure) {
+        var authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({
+            Username: toUsername(email),
+            Password: password
+        });
+
+        var cognitoUser = createCognitoUser(email);
+        cognitoUser.authenticateUser(authenticationDetails, {
+            onSuccess: onSuccess,
+            onFailure: onFailure
+        });
     }
 
     function verify(email, code, onSuccess, onFailure) {
